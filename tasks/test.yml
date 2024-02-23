@@ -1,0 +1,83 @@
+---
+- name: Get packages that can be upgraded on TEST servers
+  become: true
+  ansible.builtin.yum:
+    list: updates
+    state: latest
+    update_cache: yes
+  register: reg_yum_output_all
+ 
+- name: List packages that will be upgraded on TEST servers
+  ansible.builtin.debug:
+    msg: "{{ reg_yum_output_all.results | map(attribute='name') | list }}"
+ 
+- name: Request user confirmation
+  ansible.builtin.pause:
+    prompt: |
+ 
+      The packages listed above will be upgraded. Do you want to continue ?
+      -> Press RETURN to continue.
+      -> Press Ctrl+c and then "a" to abort.
+
+- name: Upgrade packages on TEST servers
+  become: true
+  ansible.builtin.yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+    update_only: no
+  register: reg_upgrade_ok
+  when: 
+    - reg_yum_output_all is defined
+ 
+- name: Print errors if upgrade failed
+  ansible.builtin.debug:
+    msg: "Packages upgrade failed"
+  when: reg_upgrade_ok is not defined
+
+- name: Install yum-utils on TEST servers
+  become: true
+  ansible.builtin.yum:
+    name: 'yum-utils'
+    state: latest
+    update_cache: yes
+ 
+ 
+- name: Check if a reboot is required
+  become: true
+  command: needs-restarting -r
+  register: reg_reboot_required
+  ignore_errors: true
+  failed_when: false
+  changed_when: reg_reboot_required.rc != 0
+  notify:
+    - Reboot server
+
+- name: Genereate the list of the upgraded packages on TEST servers
+  become: true
+  shell: "rpm -qa > /tmp/packages-set.txt"
+  args:
+    warn: false
+
+- name: Delete the fake RPM packages gpg-pubkey from the list
+  become: true
+  ansible.builtin.lineinfile:
+    path: /tmp/packages-set.txt
+    regexp: 'gpg-pubkey-.*'
+    state: absent
+
+- name: Fetch the file from the Ansible Control Node
+  become: true
+  ansible.builtin.fetch: 
+    src: /tmp/packages-set.txt
+    dest: /tmp/
+    flat: yes
+
+- name: Copy the file from the Ansible Control node to the PROD servers
+  ansible.builtin.copy: 
+    src: /tmp/packages-set.txt
+    dest: /etc/wba
+    force: true
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['prod'] }}"
+
