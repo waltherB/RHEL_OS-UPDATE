@@ -1,7 +1,0 @@
----
-- name: Patch TEST or PROD servers
-  hosts: all
-  gather_facts: true
- 
-  roles:
-    - rhel_os-update
