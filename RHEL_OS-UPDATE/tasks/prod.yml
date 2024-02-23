@@ -1,0 +1,24 @@
+---
+- name: Check if the packages list file (/etc/wba/packages-set.txt) is present on PROD servers
+  ansible.builtin.stat:
+    path: /etc/dba/packages-set.txt
+  register: reg_file_status
+
+- name: Fail when file /etc/wba/packages-set.txt does not exist
+  ansible.builtin.fail: 
+    msg: /etc/wba/packages-set.txt does not exist
+  when: reg_file_status.stat.exists == false
+
+- name: Upgrade PROD servers to the same packages version as TEST servers
+  become: true
+  shell: "cat /etc/wba/packages-set.txt | xargs yum update-to -y"
+
+- name: Check if a reboot is required
+  become: true
+  command: needs-restarting -r
+  register: reg_reboot_required
+  ignore_errors: true
+  failed_when: false
+  changed_when: reg_reboot_required.rc != 0
+  notify:
+    - Reboot server

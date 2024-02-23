@@ -1,0 +1,7 @@
+[test]
+192.168.1.1  # srvtest1
+192.168.1.2  # srvtest2
+ 
+[prod]
+192.168.2.1   # srvprod1
+192.168.2.2   # srvprod1

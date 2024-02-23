@@ -1,2 +1,10 @@
 ---
-# tasks file for RHEL_OS-UPDATE
+# tasks file for rhel_os-update
+- include_tasks: test.yml
+  when:
+    - env_patch == "test"
+    - inventory_hostname in groups['test']
+- include_tasks: prod.yml
+  when:
+    - env_patch == "prod"
+    - inventory_hostname in groups['prod']
